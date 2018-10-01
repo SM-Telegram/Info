@@ -9,7 +9,7 @@ public Plugin myinfo =
 	name = "[Telegram] Info",
 	author = "Alexbu444",
 	description = "Send info to Telegram",
-	version = "1.0.0",
+	version = "1.0.1",
 	url = "https://t.me/alexbu444"
 };
 
@@ -22,6 +22,7 @@ char szChatId[256];
 
 public void OnPluginStart() {
 	RegConsoleCmd("sm_tg_me", InfoMe);
+	RegConsoleCmd("sm_tg_server", ServerInfo);
 	BuildPath(Path_SM, g_szLogFile, sizeof(g_szLogFile), "logs/tg_info.log");
 }
 
@@ -63,6 +64,35 @@ public Action InfoMe(int iClient, int iArgs) {
 	SteamWorks_SendHTTPRequest(hRequest);
 
 	return Plugin_Handled;
+}
+
+public Action ServerInfo(int iClient, int iArgs) {
+	char szHostname[256], szMap[256], szPlayers[256], szAdmins[256];
+
+	GetConVarString(FindConVar("hostname"), szHostname, sizeof(szHostname));
+	GetCurrentMap(szMap, sizeof(szMap));
+	FormatEx(szPlayers, sizeof(szPlayers), "**%d** / **%d**", GetClientCount(true), MaxClients);
+	FormatEx(szAdmins, sizeof(szAdmins), "**%d**", GetAdminCount());
+
+	FormatEx(szQuery, sizeof(szQuery), "https://api.telegram.org/bot%s/sendMessage?chat_id=%s&parse_mode=markdown&text=Информация о сервере: `Hostname - %s / Current Map - %s / Players - %s / Admins - %s`", szToken, szChatId, szHostname, szMap, szPlayers, szAdmins);
+	Handle hRequest = SteamWorks_CreateHTTPRequest(k_EHTTPMethodPOST, szQuery);
+	SteamWorks_SetHTTPRequestHeaderValue(hRequest, "User-Agent", "telegram");
+	SteamWorks_SetHTTPCallbacks(hRequest, OnTransferComplete);
+	SteamWorks_SendHTTPRequest(hRequest);
+
+	return Plugin_Continue;
+}
+
+int GetAdminCount() {
+	int res;
+
+	for (int i; ++i <= MaxClients;) {
+		if (!IsClientInGame(i) || IsFakeClient(i) || GetUserAdmin(i) == INVALID_ADMIN_ID)
+			continue;
+		res++;
+  	}
+
+	return res;
 }
 
 public int OnTransferComplete(Handle hRequest, bool bFailure, bool bRequestSuccessful, EHTTPStatusCode eStatusCode) {
